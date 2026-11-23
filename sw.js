@@ -1,4 +1,4 @@
-const CACHE_NAME = 'drift-pwa-v5';
+const CACHE_NAME = 'drift-pwa-v6';
 const ASSETS = [
   './',
   './index.html',
@@ -27,17 +27,29 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
 
-  event.respondWith(
-    caches.match(req).then((cached) => {
-      if (cached) return cached;
-      return fetch(req).then((response) => {
-        if (!response || response.status !== 200 || response.type !== 'basic') {
-          return response;
+  // Icons rarely change: cache-first keeps them instant.
+  if (url.pathname.endsWith('.png')) {
+    event.respondWith(
+      caches.match(req).then((cached) => cached || fetch(req).then((response) => {
+        if (response && response.status === 200 && response.type === 'basic') {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
         }
+        return response;
+      }))
+    );
+    return;
+  }
+
+  // App shell: network-first so updates land on the next load;
+  // the cache is only a fallback for offline use.
+  event.respondWith(
+    fetch(req).then((response) => {
+      if (response && response.status === 200 && response.type === 'basic') {
         const clone = response.clone();
         caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
-        return response;
-      }).catch(() => caches.match('./index.html'));
-    })
+      }
+      return response;
+    }).catch(() => caches.match(req).then((cached) => cached || caches.match('./index.html')))
   );
 });
