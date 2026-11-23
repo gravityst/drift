@@ -1,4 +1,4 @@
-const CACHE_NAME = 'drift-pwa-v3';
+const CACHE_NAME = 'drift-pwa-v4';
 const ASSETS = [
   './',
   './index.html',
