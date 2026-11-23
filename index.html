@@ -7,12 +7,12 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Drift">
-  <meta name="description" content="Seamless infinite brainwave MP3 looper for focus, meditation, and sleep.">
+  <meta name="description" content="Seamless infinite brainwave looper for focus, meditation, and sleep. Loops MP3s and video clips.">
   <title>Drift — Seamless Brainwave Looper</title>
   <link rel="manifest" href="manifest.json">
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 128 128'%3E%3Crect width='128' height='128' rx='28' fill='%23FAF9F7'/%3E%3Ccircle cx='64' cy='64' r='40' fill='none' stroke='%235B7C8D' stroke-width='3' opacity='0.28'/%3E%3Ccircle cx='64' cy='64' r='26' fill='none' stroke='%235B7C8D' stroke-width='3.5' opacity='0.58'/%3E%3Ccircle cx='64' cy='64' r='10' fill='%235B7C8D'/%3E%3C/svg%3E">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
   <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="stylesheet" href="styles.css">
   <script>
     try {
@@ -28,11 +28,11 @@
 <body>
   <div id="dropOverlay" class="drop-overlay" hidden aria-hidden="true">
     <div class="drop-overlay-inner">
-      <span>Drop MP3 files to add</span>
+      <span>Drop audio or video files to add</span>
     </div>
   </div>
 
-  <input id="fileInput" type="file" accept="audio/mpeg,.mp3" multiple hidden>
+  <input id="fileInput" type="file" accept="audio/mpeg,.mp3,.m4a,audio/mp4,video/mp4,.mp4,video/webm,.webm,video/quicktime,.mov" multiple hidden>
 
   <div class="app-shell">
     <header class="top-bar">
@@ -47,7 +47,7 @@
             <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
           </svg>
         </button>
-        <button id="headerAddBtn" class="icon-btn" type="button" aria-label="Add MP3 tracks" hidden>
+        <button id="headerAddBtn" class="icon-btn" type="button" aria-label="Add tracks" hidden>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
             <path d="M12 5v14M5 12h14"/>
           </svg>
@@ -65,33 +65,28 @@
       <button id="dismissErrorBtn" class="banner-close" type="button" aria-label="Dismiss error">&times;</button>
     </div>
 
-    <div id="iosNote" class="inline-banner info-banner" hidden>
-      <span>On iOS, Safari may pause Web Audio when the screen locks. Keep the display dimmed for continuous loops.</span>
-      <button id="dismissIosBtn" class="banner-close" type="button" aria-label="Dismiss notice">&times;</button>
-    </div>
-
     <main class="main-content">
       <section id="emptyState" class="empty-state" aria-label="Add tracks">
-        <div id="emptyDropZone" class="drop-zone" role="region" aria-label="Drop zone for MP3 files">
-          <div class="drop-icon" aria-hidden="true">
-            <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
-              <circle cx="18" cy="18" r="15" stroke="currentColor" stroke-width="1.2" opacity="0.25"/>
-              <circle cx="18" cy="18" r="9.5" stroke="currentColor" stroke-width="1.4" opacity="0.55"/>
-              <circle cx="18" cy="18" r="3.5" fill="currentColor"/>
-            </svg>
+        <div id="emptyDropZone" class="drop-zone" role="region" aria-label="Drop zone for audio and video files">
+          <div class="drop-icon app-icon-tile" aria-hidden="true">
+            <img src="icon-512.png" alt="" width="76" height="76">
           </div>
           <button id="emptyAddBtn" class="primary-btn" type="button">Add tracks</button>
-          <p class="empty-help">Drop brainwave MP3 files here or browse to store them offline.</p>
+          <p class="empty-help">Drop brainwave MP3s — or a video clip, like one from Gemini — here or browse. Everything is stored on this device, offline.</p>
         </div>
       </section>
 
-      <section id="playerView" class="player-view" hidden>
+      <section id="playerView" class="player-view app-view" data-view-panel="player" hidden>
         <div class="now-playing">
           <div class="session-meta">
             <span id="binauralReadout" class="binaural-badge">Analyzing…</span>
             <span id="elapsedTime" class="elapsed-time" title="Elapsed session time">00:00</span>
           </div>
           <h2 id="currentTrackTitle" class="track-title">Select a track</h2>
+          <div id="videoFrame" class="video-frame" hidden>
+            <video id="trackVideo" muted loop playsinline preload="metadata"></video>
+            <span class="video-badge">Video</span>
+          </div>
           <div id="vizBars" class="viz-bars" aria-hidden="true"></div>
           <div class="loop-progress"><div id="loopProgressFill" class="loop-progress-fill"></div></div>
         </div>
@@ -137,14 +132,6 @@
           <span id="volumeValue" class="value-label">85%</span>
         </div>
 
-        <section class="panel-card" aria-label="Tracks">
-          <div class="section-header">
-            <span class="section-label">Tracks</span>
-            <span id="trackCount" class="section-meta">0</span>
-          </div>
-          <ul id="trackList" class="track-list" role="listbox" aria-label="Track library"></ul>
-        </section>
-
         <section class="panel-card" aria-label="Sleep timer">
           <div class="section-header">
             <span class="section-label">Sleep timer</span>
@@ -159,28 +146,98 @@
             <button type="button" class="pill-btn" data-minutes="90">90m</button>
           </div>
         </section>
+
+        <div id="toolsTriggerWrap" class="tools-trigger-wrap" hidden>
+          <button id="openToolsBtn" class="tools-trigger" type="button" aria-haspopup="dialog" aria-expanded="false">
+            <span class="tools-grab" aria-hidden="true"></span>
+            <span class="tools-trigger-text">Trim · EQ · Presets</span>
+          </button>
+        </div>
       </section>
 
-      <section class="panel-card" aria-label="Library backup">
-        <div class="section-header">
-          <span class="section-label">Library backup</span>
-          <span id="storageStatus" class="section-meta"></span>
+      <section id="libraryView" class="app-view" data-view-panel="library" hidden>
+        <section class="panel-card" aria-label="Tracks">
+          <div class="section-header">
+            <span class="section-label">Tracks</span>
+            <span id="trackCount" class="section-meta">0</span>
+          </div>
+          <ul id="trackList" class="track-list" role="listbox" aria-label="Track library"></ul>
+        </section>
+        <button id="libraryAddBtn" class="primary-btn add-tracks-btn" type="button">Add tracks</button>
+        <p class="empty-help library-help">MP3s loop seamlessly. Video clips — like the ones Gemini makes — play on the player screen while their audio loops.</p>
+      </section>
+
+      <section id="moreView" class="app-view" data-view-panel="more" hidden>
+        <section class="panel-card" aria-label="Library backup">
+          <div class="section-header">
+            <span class="section-label">Library backup</span>
+            <span id="storageStatus" class="section-meta"></span>
+          </div>
+          <p class="empty-help">Your tracks are stored on this device and protected from automatic cleanup. For a copy that survives anything, export a backup to Files or iCloud.</p>
+          <div class="backup-actions">
+            <button id="exportBackupBtn" class="text-btn" type="button">Export backup</button>
+            <button id="importBackupBtn" class="text-btn" type="button">Restore backup</button>
+          </div>
+          <input id="backupInput" type="file" accept=".mp3,audio/mpeg,.json,application/json,.mp4,video/mp4,.mov,video/quicktime,.webm,video/webm" multiple hidden>
+        </section>
+
+        <div id="iosNote" class="inline-banner info-banner" hidden>
+          <span>On iOS, Safari may pause Web Audio when the screen locks. Keep the display dimmed for continuous loops.</span>
+          <button id="dismissIosBtn" class="banner-close" type="button" aria-label="Dismiss notice">&times;</button>
         </div>
-        <p class="empty-help">Your tracks are stored on this device and protected from automatic cleanup. For a copy that survives anything, export a backup to Files or iCloud.</p>
-        <div class="backup-actions">
-          <button id="exportBackupBtn" class="text-btn" type="button">Export backup</button>
-          <button id="importBackupBtn" class="text-btn" type="button">Restore backup</button>
-        </div>
-        <input id="backupInput" type="file" accept=".mp3,audio/mpeg,.json,application/json" multiple hidden>
+
+        <p class="about-line">Drift loops brainwave audio seamlessly — MP3s and video clips, stored only on this device.</p>
       </section>
     </main>
 
-    <div id="toolsTriggerWrap" class="tools-trigger-wrap" hidden>
-      <button id="openToolsBtn" class="tools-trigger" type="button" aria-haspopup="dialog" aria-expanded="false">
-        <span class="tools-grab" aria-hidden="true"></span>
-        <span class="tools-trigger-text">Trim · EQ · Presets</span>
+    <div id="miniPlayer" class="mini-player" hidden>
+      <div class="mini-progress"><div id="miniProgressFill" class="mini-progress-fill"></div></div>
+      <button id="miniInfoBtn" class="mini-info" type="button" aria-label="Open player">
+        <span id="miniTitle" class="mini-title">—</span>
+        <span id="miniMeta" class="mini-meta">Paused</span>
+      </button>
+      <button id="miniPlayBtn" class="mini-play" type="button" aria-label="Play or pause">
+        <svg id="miniPlayIcon" width="17" height="17" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M7.5 5.25L18.5 12L7.5 18.75V5.25Z"/>
+        </svg>
+        <svg id="miniPauseIcon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" hidden>
+          <rect x="6.5" y="5" width="3.5" height="14" rx="1"/>
+          <rect x="14" y="5" width="3.5" height="14" rx="1"/>
+        </svg>
+      </button>
+      <button id="miniNextBtn" class="mini-next" type="button" aria-label="Next track">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 4l10 8-10 8V4z"/><path d="M19 5v14"/>
+        </svg>
       </button>
     </div>
+
+    <nav id="tabBar" class="tab-bar" aria-label="Main" hidden>
+      <button type="button" class="tab-item active" data-view="player" aria-label="Player">
+        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+          <path d="M4 10v4M8 7v10M12 4v16M16 8v8M20 10v4"/>
+        </svg>
+        <span>Player</span>
+      </button>
+      <button type="button" class="tab-item" data-view="library" aria-label="Library">
+        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M8 6h13M8 12h13M8 18h13"/><path d="M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>
+        </svg>
+        <span>Library</span>
+      </button>
+      <button type="button" class="tab-item" id="tabToolsBtn" aria-label="Sound tools">
+        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+          <path d="M4 8h10M18 8h2M4 16h4M12 16h8"/><circle cx="16" cy="8" r="2.2"/><circle cx="10" cy="16" r="2.2"/>
+        </svg>
+        <span>Tools</span>
+      </button>
+      <button type="button" class="tab-item" data-view="more" aria-label="More">
+        <svg width="21" height="21" viewBox="0 0 24 24" fill="currentColor">
+          <circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/>
+        </svg>
+        <span>More</span>
+      </button>
+    </nav>
   </div>
 
   <div id="sheetBackdrop" class="sheet-backdrop" hidden></div>
