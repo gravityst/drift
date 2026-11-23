@@ -1153,3 +1153,275 @@ body.is-playing .viz-bars span {
   background: var(--accent-gradient);
   border-radius: 3px;
 }
+
+/* ============================================================
+   Mobile tab layout (Player / Library / Tools / More)
+   ============================================================ */
+
+.app-shell {
+  padding-bottom: calc(158px + env(safe-area-inset-bottom));
+}
+
+.app-view {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  animation: view-in 220ms ease;
+}
+
+@keyframes view-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-view { animation: none; }
+}
+
+/* The tools trigger now lives inside the Player view as a normal block */
+.tools-trigger-wrap {
+  position: static;
+  padding: 0;
+  background: none;
+  pointer-events: auto;
+}
+
+:root[data-theme="light"] .tools-trigger-wrap {
+  background: none;
+}
+
+.tools-trigger {
+  max-width: none;
+}
+
+/* --- Video frame in the player hero --- */
+.video-frame {
+  position: relative;
+  margin-top: 14px;
+  border-radius: 20px;
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  background: #000;
+  box-shadow: var(--shadow-soft);
+  aspect-ratio: 16 / 9;
+}
+
+.video-frame video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.video-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(4, 8, 18, 0.62);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #DCEBFF;
+  font-size: 0.64rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* --- Track kind chip (Library rows) --- */
+.track-kind-chip {
+  flex: none;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* --- Library add button / help --- */
+.add-tracks-btn {
+  width: 100%;
+  min-height: 52px;
+}
+
+.library-help {
+  text-align: center;
+  margin: 0 6px;
+}
+
+.about-line {
+  margin: 2px 6px 0;
+  text-align: center;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--ink-muted);
+}
+
+/* --- Mini player --- */
+.mini-player {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(76px + env(safe-area-inset-bottom));
+  z-index: 29;
+  width: calc(100% - 24px);
+  max-width: 436px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 12px 10px;
+  border-radius: 18px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-soft);
+}
+
+.mini-progress {
+  position: absolute;
+  top: 0;
+  left: 16px;
+  right: 16px;
+  height: 3px;
+  border-radius: 3px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.mini-progress-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 3px;
+  background: var(--accent-gradient);
+  transition: width 160ms linear;
+}
+
+.mini-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  text-align: left;
+  padding: 2px 2px;
+}
+
+.mini-title {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.mini-meta {
+  font-size: 0.72rem;
+  color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.mini-play {
+  flex: none;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-gradient);
+  color: #fff;
+  box-shadow: 0 4px 14px var(--accent-shadow);
+}
+
+.mini-play:active {
+  transform: scale(0.95);
+}
+
+.mini-next {
+  flex: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-secondary);
+}
+
+.mini-next:active {
+  transform: scale(0.94);
+}
+
+/* --- Bottom tab bar --- */
+.tab-bar {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 0;
+  z-index: 30;
+  width: 100%;
+  max-width: 460px;
+  display: flex;
+  gap: 2px;
+  padding: 8px 10px calc(10px + env(safe-area-inset-bottom));
+  background: rgba(7, 13, 29, 0.86);
+  backdrop-filter: blur(18px) saturate(1.3);
+  -webkit-backdrop-filter: blur(18px) saturate(1.3);
+  border-top: 1px solid var(--border);
+}
+
+:root[data-theme="light"] .tab-bar {
+  background: rgba(250, 249, 247, 0.88);
+}
+
+.tab-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 6px 0 4px;
+  border-radius: 12px;
+  color: var(--ink-muted);
+  font-size: 0.66rem;
+  font-weight: 500;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  transition: color 140ms ease, background 140ms ease;
+}
+
+.tab-item.active {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.tab-item:active {
+  transform: scale(0.97);
+}
+
+/* --- Hero polish --- */
+.track-title {
+  font-size: 1.5rem;
+  line-height: 1.2;
+}
+
+.elapsed-time,
+.timer-remaining {
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Actual app icon tile (empty state) --- */
+.app-icon-tile img {
+  display: block;
+  width: 76px;
+  height: 76px;
+  border-radius: 19px;
+  box-shadow: var(--shadow-soft);
+}

@@ -1059,6 +1059,48 @@
       setLoading(1, `Analyzing "${file.name}"…`);
       try {
         const arrayBuffer = await file.arrayBuffer();
+
+        // Video files (e.g. clips from Gemini): decode the audio track and
+        // loop it like any other track; the video itself is shown in the
+        // player. Stored with kind:'video' so the UI can frame it.
+        const isVideoFile = (file.type && file.type.indexOf('video/') === 0) ||
+          /\.(mp4|m4v|mov|webm)$/i.test(file.name);
+        if (isVideoFile) {
+          let decoded;
+          try {
+            decoded = await ctx.decodeAudioData(arrayBuffer.slice(0));
+          } catch {
+            throw new Error(`Could not read audio from "${file.name}". MP4 works best.`);
+          }
+          const duration = decoded.duration;
+          const autoTrim = computeAutoTrim(decoded, { hasLame: false });
+          const peaks = extractBufferPeaks(decoded, 220);
+          const binaural = analyzeBinaural(decoded, autoTrim.start, autoTrim.end);
+          const id = generateId();
+          const meta = {
+            id,
+            name: file.name.replace(/\.[^.]+$/, ''),
+            size: file.size,
+            duration,
+            autoTrimStart: autoTrim.start,
+            autoTrimEnd: autoTrim.end,
+            trimStart: autoTrim.start,
+            trimEnd: autoTrim.end,
+            isStreaming: false,
+            kind: 'video',
+            mime: file.type || 'video/mp4',
+            peaks,
+            binaural,
+            addedAt: Date.now()
+          };
+          await dbSaveTrack(meta, arrayBuffer);
+          cacheDecodedBuffer(id, decoded);
+          state.tracks.push(meta);
+          await applyRestoreMatch(meta);
+          if (!state.currentTrackId) state.currentTrackId = id;
+          continue;
+        }
+
         const mp3Info = parseMp3Structure(arrayBuffer);
         if (!mp3Info) {
           throw new Error(`"${file.name}" is not a valid MP3 file.`);
@@ -1173,7 +1215,9 @@
           duration: t.duration,
           trimStart: t.trimStart,
           trimEnd: t.trimEnd,
-          isStreaming: t.isStreaming
+          isStreaming: t.isStreaming,
+          kind: t.kind || 'audio',
+          mime: t.mime || null
         })),
         presets: state.presets
       };
@@ -1182,7 +1226,14 @@
       ];
       for (const t of state.tracks) {
         const raw = await dbGetAudioData(t.id);
-        if (raw) files.push(new File([raw], `${t.name}.mp3`, { type: 'audio/mpeg' }));
+        if (!raw) continue;
+        if (t.kind === 'video') {
+          const mime = t.mime || 'video/mp4';
+          const ext = mime.indexOf('webm') >= 0 ? 'webm' : (mime.indexOf('quicktime') >= 0 ? 'mov' : 'mp4');
+          files.push(new File([raw], `${t.name}.${ext}`, { type: mime }));
+        } else {
+          files.push(new File([raw], `${t.name}.mp3`, { type: 'audio/mpeg' }));
+        }
       }
       if (navigator.canShare && navigator.share && navigator.canShare({ files })) {
         await navigator.share({ files, title: 'Drift library backup' });
@@ -1212,7 +1263,7 @@
     const files = Array.from(fileList || []);
     if (!files.length) return;
     const jsonFile = files.find((f) => /\.json$/i.test(f.name));
-    const mp3Files = files.filter((f) => /\.mp3$/i.test(f.name) || f.type === 'audio/mpeg');
+    const mp3Files = files.filter((f) => /\.(mp3|mp4|m4v|mov|webm)$/i.test(f.name) || f.type === 'audio/mpeg' || (f.type && f.type.indexOf('video/') === 0));
 
     if (jsonFile) {
       try {
@@ -1243,7 +1294,7 @@
       restoreIdMap.clear();
       renderAll();
     } else if (jsonFile && mp3Files.length === 0) {
-      showError('That backup file has no tracks with it. Select the MP3 files from the backup as well.');
+      showError('That backup file has no tracks with it. Select the audio/video files from the backup as well.');
     }
   }
 
@@ -1986,6 +2037,8 @@
     dom.headerAddBtn.hidden = !hasTracks;
     dom.toolsTriggerWrap.hidden = !hasTracks;
 
+    syncAppChrome();
+
     if (!hasTracks) return;
 
     const track = getCurrentTrack();
@@ -2016,6 +2069,7 @@
     dom.playIcon.hidden = state.isPlaying;
     dom.pauseIcon.hidden = !state.isPlaying;
     document.body.classList.toggle('is-playing', state.isPlaying);
+    syncTransportChrome();
   }
 
   function updateLoopProgress() {
@@ -2028,6 +2082,7 @@
       pct = Math.min(1, Math.max(0, (playhead - track.trimStart) / span));
     }
     dom.loopProgressFill.style.width = `${(pct * 100).toFixed(1)}%`;
+    syncProgressChrome(track, playhead, pct);
   }
 
   function renderTrackList() {
@@ -2052,7 +2107,14 @@
       const nameSpan = document.createElement('span');
       nameSpan.className = 'track-item-name';
       nameSpan.textContent = track.name;
-      mainWrap.append(dot, nameSpan);
+      if (track.kind === 'video') {
+        const chip = document.createElement('span');
+        chip.className = 'track-kind-chip';
+        chip.textContent = 'Video';
+        mainWrap.append(dot, nameSpan, chip);
+      } else {
+        mainWrap.append(dot, nameSpan);
+      }
 
       const durSpan = document.createElement('span');
       durSpan.className = 'track-item-dur';
@@ -2730,6 +2792,134 @@
 
     renderAll();
   }
+
+  /* ---------- App chrome: tab navigation, mini player, video frame ---------- */
+
+  const chrome = {
+    tabBar: document.getElementById('tabBar'),
+    libraryView: document.getElementById('libraryView'),
+    moreView: document.getElementById('moreView'),
+    libraryAddBtn: document.getElementById('libraryAddBtn'),
+    tabToolsBtn: document.getElementById('tabToolsBtn'),
+    miniPlayer: document.getElementById('miniPlayer'),
+    miniTitle: document.getElementById('miniTitle'),
+    miniMeta: document.getElementById('miniMeta'),
+    miniPlayBtn: document.getElementById('miniPlayBtn'),
+    miniPlayIcon: document.getElementById('miniPlayIcon'),
+    miniPauseIcon: document.getElementById('miniPauseIcon'),
+    miniNextBtn: document.getElementById('miniNextBtn'),
+    miniInfoBtn: document.getElementById('miniInfoBtn'),
+    miniProgressFill: document.getElementById('miniProgressFill'),
+    videoFrame: document.getElementById('videoFrame'),
+    trackVideo: document.getElementById('trackVideo')
+  };
+
+  let activeView = 'player';
+  let chromeVideoTrackId = null;
+  let chromeVideoUrl = null;
+  let chromeVideoGen = 0;
+
+  function miniMetaText(track) {
+    if (!state.isPlaying) return 'Paused';
+    return track.binaural ? `Looping · ${track.binaural.hz.toFixed(1)} Hz ${track.binaural.band}` : 'Looping';
+  }
+
+  function showView(name) {
+    activeView = name;
+    document.querySelectorAll('.tab-item[data-view]').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.view === name);
+    });
+    syncAppChrome();
+  }
+
+  function syncAppChrome() {
+    const hasTracks = state.tracks.length > 0;
+    const track = getCurrentTrack();
+
+    chrome.tabBar.hidden = !hasTracks;
+    dom.playerView.hidden = !hasTracks || activeView !== 'player';
+    chrome.libraryView.hidden = !hasTracks || activeView !== 'library';
+    chrome.moreView.hidden = !hasTracks || activeView !== 'more';
+
+    chrome.miniPlayer.hidden = !(hasTracks && activeView !== 'player');
+    if (track) {
+      chrome.miniTitle.textContent = track.name;
+      chrome.miniMeta.textContent = miniMetaText(track);
+    }
+    syncVideoFrame(track);
+    syncTransportChrome();
+  }
+
+  async function syncVideoFrame(track) {
+    const video = chrome.trackVideo;
+    if (!track || track.kind !== 'video') {
+      chrome.videoFrame.hidden = true;
+      if (chromeVideoTrackId) {
+        chromeVideoGen++;
+        chromeVideoTrackId = null;
+        try { video.pause(); } catch {}
+        video.removeAttribute('src');
+        video.load();
+        if (chromeVideoUrl) { URL.revokeObjectURL(chromeVideoUrl); chromeVideoUrl = null; }
+      }
+      return;
+    }
+    chrome.videoFrame.hidden = false;
+    if (chromeVideoTrackId === track.id) {
+      if (state.isPlaying) video.play().catch(() => {});
+      return;
+    }
+    const gen = ++chromeVideoGen;
+    try {
+      const raw = await dbGetAudioData(track.id);
+      if (!raw || gen !== chromeVideoGen) return;
+      if (chromeVideoUrl) URL.revokeObjectURL(chromeVideoUrl);
+      chromeVideoUrl = URL.createObjectURL(new Blob([raw], { type: track.mime || 'video/mp4' }));
+      chromeVideoTrackId = track.id;
+      video.src = chromeVideoUrl;
+      const seekToStart = () => {
+        try { video.currentTime = track.trimStart; } catch {}
+        if (state.isPlaying) video.play().catch(() => {});
+        video.removeEventListener('loadedmetadata', seekToStart);
+      };
+      video.addEventListener('loadedmetadata', seekToStart);
+    } catch {}
+  }
+
+  function syncTransportChrome() {
+    if (!chrome.miniPlayIcon) return;
+    chrome.miniPlayIcon.hidden = state.isPlaying;
+    chrome.miniPauseIcon.hidden = !state.isPlaying;
+    const track = getCurrentTrack();
+    if (track) chrome.miniMeta.textContent = miniMetaText(track);
+    const video = chrome.trackVideo;
+    if (track && track.kind === 'video' && chromeVideoTrackId === track.id) {
+      if (state.isPlaying) video.play().catch(() => {});
+      else video.pause();
+    }
+  }
+
+  function syncProgressChrome(track, playhead, pct) {
+    if (chrome.miniProgressFill) {
+      chrome.miniProgressFill.style.width = `${(pct * 100).toFixed(1)}%`;
+    }
+    const video = chrome.trackVideo;
+    if (track && track.kind === 'video' && playhead != null &&
+        chromeVideoTrackId === track.id && video.readyState >= 1) {
+      if (Math.abs(video.currentTime - playhead) > 0.45) {
+        try { video.currentTime = playhead; } catch {}
+      }
+    }
+  }
+
+  document.querySelectorAll('.tab-item[data-view]').forEach((btn) => {
+    btn.addEventListener('click', () => showView(btn.dataset.view));
+  });
+  chrome.tabToolsBtn.addEventListener('click', () => dom.openToolsBtn.click());
+  chrome.libraryAddBtn.addEventListener('click', () => dom.fileInput.click());
+  chrome.miniPlayBtn.addEventListener('click', () => dom.playPauseBtn.click());
+  chrome.miniNextBtn.addEventListener('click', () => dom.nextTrackBtn.click());
+  chrome.miniInfoBtn.addEventListener('click', () => showView('player'));
 
   init();
 })();
