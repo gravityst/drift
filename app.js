@@ -95,6 +95,8 @@
     themeToggleBtn: document.getElementById('themeToggleBtn'),
     themeMoonIcon: document.getElementById('themeMoonIcon'),
     themeSunIcon: document.getElementById('themeSunIcon'),
+    vizBars: document.getElementById('vizBars'),
+    loopProgressFill: document.getElementById('loopProgressFill'),
     loadingBar: document.getElementById('loadingBar'),
     loadingText: document.getElementById('loadingText'),
     errorBanner: document.getElementById('errorBanner'),
@@ -1733,6 +1735,7 @@
         }
       }
       state.lastElapsedTick = nowMs;
+      updateLoopProgress();
 
       const track = getCurrentTrack();
       if (track && audioCtx) {
@@ -2012,6 +2015,19 @@
     dom.playPauseBtn.setAttribute('aria-label', state.isPlaying ? 'Pause' : 'Play');
     dom.playIcon.hidden = state.isPlaying;
     dom.pauseIcon.hidden = !state.isPlaying;
+    document.body.classList.toggle('is-playing', state.isPlaying);
+  }
+
+  function updateLoopProgress() {
+    if (!dom.loopProgressFill) return;
+    const track = getCurrentTrack();
+    const playhead = track ? getCurrentPlayhead() : null;
+    let pct = 0;
+    if (track && playhead != null) {
+      const span = Math.max(0.1, track.trimEnd - track.trimStart);
+      pct = Math.min(1, Math.max(0, (playhead - track.trimStart) / span));
+    }
+    dom.loopProgressFill.style.width = `${(pct * 100).toFixed(1)}%`;
   }
 
   function renderTrackList() {
@@ -2128,11 +2144,11 @@
     const endX = (track.trimEnd / track.duration) * width;
     const dark = getEffectiveTheme() === 'dark';
 
-    ctx.fillStyle = dark ? 'rgba(0, 0, 0, 0.28)' : 'rgba(28, 32, 38, 0.045)';
+    ctx.fillStyle = dark ? 'rgba(0, 0, 0, 0.32)' : 'rgba(28, 32, 38, 0.045)';
     ctx.fillRect(0, 0, startX, height);
     ctx.fillRect(endX, 0, width - endX, height);
 
-    ctx.fillStyle = dark ? 'rgba(132, 169, 190, 0.10)' : 'rgba(91, 124, 141, 0.07)';
+    ctx.fillStyle = dark ? 'rgba(56, 150, 248, 0.10)' : 'rgba(91, 124, 141, 0.07)';
     ctx.fillRect(startX, 0, Math.max(0, endX - startX), height);
 
     const peaks = track.peaks || [];
@@ -2148,8 +2164,8 @@
         const barH = Math.max(3, peaks[i] * maxBarH);
         const inside = x + barWidth * 0.5 >= startX && x + barWidth * 0.5 <= endX;
         ctx.fillStyle = inside
-          ? (dark ? '#84A9BE' : '#5B7C8D')
-          : (dark ? 'rgba(237, 241, 244, 0.22)' : 'rgba(28, 32, 38, 0.18)');
+          ? (dark ? '#3FA9F5' : '#5B7C8D')
+          : (dark ? 'rgba(157, 178, 204, 0.22)' : 'rgba(28, 32, 38, 0.18)');
         ctx.fillRect(x, midY - barH * 0.5, barWidth, barH);
       }
     }
@@ -2157,7 +2173,7 @@
     const playhead = getCurrentPlayhead();
     if (playhead != null) {
       const px = (playhead / track.duration) * width;
-      ctx.fillStyle = dark ? '#EDF1F4' : '#1C2026';
+      ctx.fillStyle = dark ? '#EDF4FF' : '#1C2026';
       ctx.fillRect(px - 0.75, 0, 1.5, height);
     }
   }
@@ -2640,9 +2656,7 @@
   function getEffectiveTheme() {
     const attr = document.documentElement.getAttribute('data-theme');
     if (attr === 'dark' || attr === 'light') return attr;
-    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
-      ? 'dark'
-      : 'light';
+    return 'dark';
   }
 
   function applyThemeUI() {
@@ -2653,7 +2667,19 @@
       dom.themeToggleBtn.setAttribute('aria-label', dark ? 'Switch to light mode' : 'Switch to dark mode');
     }
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute('content', dark ? '#101418' : '#FAF9F7');
+    if (meta) meta.setAttribute('content', dark ? '#070D1D' : '#FAF9F7');
+  }
+
+  function buildVizBars() {
+    if (!dom.vizBars || dom.vizBars.childElementCount) return;
+    const heights = [42, 68, 90, 58, 76, 100, 64, 84, 50, 72, 95, 60, 88, 46, 70, 98, 56, 80, 66, 92, 52, 74, 62, 86];
+    heights.forEach((h, i) => {
+      const bar = document.createElement('span');
+      bar.style.setProperty('--h', h);
+      bar.style.animationDelay = `${(i % 8) * 0.09}s`;
+      bar.style.animationDuration = `${0.75 + (i % 5) * 0.13}s`;
+      dom.vizBars.appendChild(bar);
+    });
   }
 
   function toggleTheme() {
@@ -2682,6 +2708,7 @@
     startScheduler();
     applyVolume(state.volume, false);
     applyThemeUI();
+    buildVizBars();
 
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('./sw.js').catch(() => {});

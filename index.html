@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="theme-color" content="#FAF9F7">
+  <meta name="theme-color" content="#070D1D">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Drift">
@@ -19,6 +19,8 @@
       var savedTheme = localStorage.getItem('drift_theme');
       if (savedTheme === 'dark' || savedTheme === 'light') {
         document.documentElement.setAttribute('data-theme', savedTheme);
+      } else {
+        document.documentElement.setAttribute('data-theme', 'dark');
       }
     } catch (e) {}
   </script>
@@ -90,6 +92,8 @@
             <span id="elapsedTime" class="elapsed-time" title="Elapsed session time">00:00</span>
           </div>
           <h2 id="currentTrackTitle" class="track-title">Select a track</h2>
+          <div id="vizBars" class="viz-bars" aria-hidden="true"></div>
+          <div class="loop-progress"><div id="loopProgressFill" class="loop-progress-fill"></div></div>
         </div>
 
         <div class="transport">
