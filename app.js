@@ -158,6 +158,15 @@
     backupInput: document.getElementById('backupInput')
   };
 
+  // SVG elements do not reliably reflect the .hidden property to the
+  // hidden attribute (notably in Safari), so icon swaps must toggle the
+  // attribute itself or the [hidden] CSS rule never applies.
+  function setIconHidden(el, hide) {
+    if (!el) return;
+    if (hide) el.setAttribute('hidden', '');
+    else el.removeAttribute('hidden');
+  }
+
   function generateId() {
     if (crypto && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
     return 'id-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 9);
@@ -1939,8 +1948,8 @@
     }
     dom.volumeSlider.value = String(Math.round(state.volume * 100));
     dom.volumeValue.textContent = `${Math.round(state.volume * 100)}%`;
-    dom.volIcon.hidden = state.muted || state.volume === 0;
-    dom.volMuteIcon.hidden = !(state.muted || state.volume === 0);
+    setIconHidden(dom.volIcon, state.muted || state.volume === 0);
+    setIconHidden(dom.volMuteIcon, !(state.muted || state.volume === 0));
     dom.muteBtn.setAttribute('aria-label', state.muted ? 'Unmute' : 'Mute');
   }
 
@@ -2066,8 +2075,8 @@
   function renderTransport() {
     dom.playPauseBtn.classList.toggle('playing', state.isPlaying);
     dom.playPauseBtn.setAttribute('aria-label', state.isPlaying ? 'Pause' : 'Play');
-    dom.playIcon.hidden = state.isPlaying;
-    dom.pauseIcon.hidden = !state.isPlaying;
+    setIconHidden(dom.playIcon, state.isPlaying);
+    setIconHidden(dom.pauseIcon, !state.isPlaying);
     document.body.classList.toggle('is-playing', state.isPlaying);
     syncTransportChrome();
   }
@@ -2723,8 +2732,8 @@
 
   function applyThemeUI() {
     const dark = getEffectiveTheme() === 'dark';
-    if (dom.themeMoonIcon) dom.themeMoonIcon.hidden = dark;
-    if (dom.themeSunIcon) dom.themeSunIcon.hidden = !dark;
+    setIconHidden(dom.themeMoonIcon, dark);
+    setIconHidden(dom.themeSunIcon, !dark);
     if (dom.themeToggleBtn) {
       dom.themeToggleBtn.setAttribute('aria-label', dark ? 'Switch to light mode' : 'Switch to dark mode');
     }
@@ -2888,8 +2897,8 @@
 
   function syncTransportChrome() {
     if (!chrome.miniPlayIcon) return;
-    chrome.miniPlayIcon.hidden = state.isPlaying;
-    chrome.miniPauseIcon.hidden = !state.isPlaying;
+    setIconHidden(chrome.miniPlayIcon, state.isPlaying);
+    setIconHidden(chrome.miniPauseIcon, !state.isPlaying);
     const track = getCurrentTrack();
     if (track) chrome.miniMeta.textContent = miniMetaText(track);
     const video = chrome.trackVideo;
